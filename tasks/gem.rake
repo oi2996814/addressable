@@ -19,9 +19,9 @@ namespace :gem do
       exit(1)
     end
 
-    s.required_ruby_version = ">= 2.0"
+    s.required_ruby_version = ">= 2.2"
 
-    s.add_runtime_dependency "public_suffix", ">= 2.0.2", "< 5.0"
+    s.add_runtime_dependency "public_suffix", ">= 2.0.2", "< 7.0"
     s.add_development_dependency "bundler", ">= 1.0", "< 3.0"
 
     s.require_path = "lib"
@@ -31,7 +31,7 @@ namespace :gem do
     s.homepage = "https://github.com/sporkmonger/addressable"
     s.license = "Apache-2.0"
     s.metadata = {
-      "changelog_uri" => "https://github.com/sporkmonger/addressable/blob/main/CHANGELOG.md"
+      "changelog_uri" => "https://github.com/sporkmonger/addressable/blob/main/CHANGELOG.md#v#{PKG_VERSION}"
     }
   end
 
@@ -56,7 +56,7 @@ namespace :gem do
 
   desc "Install the gem"
   task :install => ["clobber", "gem:package"] do
-    sh "#{SUDO} gem install --local pkg/#{GEM_SPEC.full_name}"
+    sh "gem install --local ./pkg/#{GEM_SPEC.full_name}.gem"
   end
 
   desc "Uninstall the gem"
@@ -65,7 +65,7 @@ namespace :gem do
     if installed_list &&
         (installed_list.collect { |s| s.version.to_s}.include?(PKG_VERSION))
       sh(
-        "#{SUDO} gem uninstall --version '#{PKG_VERSION}' " +
+        "gem uninstall --version '#{PKG_VERSION}' " +
         "--ignore-dependencies --executables #{PKG_NAME}"
       )
     end

@@ -5,6 +5,7 @@ source 'https://rubygems.org'
 gemspec
 
 group :test do
+  gem 'bigdecimal' if RUBY_VERSION > '2.4'
   gem 'rspec', '~> 3.8'
   gem 'rspec-its', '~> 1.3'
 end
@@ -25,4 +26,6 @@ group :test, :development do
   gem "rake", ">= 12.3.3"
 end
 
-gem "idn-ruby", platform: :mri
+unless ENV["IDNA_MODE"] == "pure"
+  gem "idn-ruby", platform: :mri
+end

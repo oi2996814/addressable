@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-# coding: utf-8
 # Copyright (C) Bob Aman
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,11 +26,7 @@ shared_examples_for 'expands' do |tests|
     exp = expansion.is_a?(Array) ? expansion.first : expansion
     it "#{template} to #{exp}" do
       tmpl = Addressable::Template.new(template).expand(subject)
-      if expansion.is_a?(Array)
-        expect(expansion.any?{|i| i == tmpl.to_str}).to be true
-      else
-        expect(tmpl.to_str).to eq(expansion)
-      end
+      expect(tmpl.to_str).to eq(expansion)
     end
   end
 end
@@ -75,6 +70,15 @@ describe "==" do
     addressable_uri = Addressable::URI.parse uri
     expect(addressable_template).not_to eq addressable_uri
     expect(addressable_uri).not_to eq addressable_template
+  end
+end
+
+describe "#to_regexp" do
+  it "does not match the first line of multiline strings" do
+    uri = "https://www.example.com/bar"
+    template = Addressable::Template.new(uri)
+    expect(template.match(uri)).not_to be_nil
+    expect(template.match("#{uri}\ngarbage")).to be_nil
   end
 end
 
@@ -201,7 +205,7 @@ describe "Level 4" do
       :path => "/foo/bar",
       :semi => ";",
       :list => %w(red green blue),
-      :keys => {"semi" => ';', "dot" => '.', "comma" => ','}
+      :keys => {"semi" => ';', "dot" => '.', :comma => ','}
     }
   }
   context "Expansion with value modifiers" do
@@ -210,22 +214,8 @@ describe "Level 4" do
       '{var:30}' => 'value',
       '{list}' => 'red,green,blue',
       '{list*}' => 'red,green,blue',
-      '{keys}' => [
-        'semi,%3B,dot,.,comma,%2C',
-        'dot,.,semi,%3B,comma,%2C',
-        'comma,%2C,semi,%3B,dot,.',
-        'semi,%3B,comma,%2C,dot,.',
-        'dot,.,comma,%2C,semi,%3B',
-        'comma,%2C,dot,.,semi,%3B'
-      ],
-      '{keys*}' => [
-        'semi=%3B,dot=.,comma=%2C',
-        'dot=.,semi=%3B,comma=%2C',
-        'comma=%2C,semi=%3B,dot=.',
-        'semi=%3B,comma=%2C,dot=.',
-        'dot=.,comma=%2C,semi=%3B',
-        'comma=%2C,dot=.,semi=%3B'
-      ]
+      '{keys}' => 'semi,%3B,dot,.,comma,%2C',
+      '{keys*}' => 'semi=%3B,dot=.,comma=%2C',
     }
   end
   context "Operator + with value modifiers" do
@@ -233,22 +223,8 @@ describe "Level 4" do
       '{+path:6}/here' => '/foo/b/here',
       '{+list}' => 'red,green,blue',
       '{+list*}' => 'red,green,blue',
-      '{+keys}' => [
-        'semi,;,dot,.,comma,,',
-        'dot,.,semi,;,comma,,',
-        'comma,,,semi,;,dot,.',
-        'semi,;,comma,,,dot,.',
-        'dot,.,comma,,,semi,;',
-        'comma,,,dot,.,semi,;'
-      ],
-      '{+keys*}' => [
-        'semi=;,dot=.,comma=,',
-        'dot=.,semi=;,comma=,',
-        'comma=,,semi=;,dot=.',
-        'semi=;,comma=,,dot=.',
-        'dot=.,comma=,,semi=;',
-        'comma=,,dot=.,semi=;'
-      ]
+      '{+keys}' => 'semi,;,dot,.,comma,,',
+      '{+keys*}' => 'semi=;,dot=.,comma=,',
     }
   end
   context "Operator # with value modifiers" do
@@ -256,22 +232,8 @@ describe "Level 4" do
       '{#path:6}/here' => '#/foo/b/here',
       '{#list}' => '#red,green,blue',
       '{#list*}' => '#red,green,blue',
-      '{#keys}' => [
-        '#semi,;,dot,.,comma,,',
-        '#dot,.,semi,;,comma,,',
-        '#comma,,,semi,;,dot,.',
-        '#semi,;,comma,,,dot,.',
-        '#dot,.,comma,,,semi,;',
-        '#comma,,,dot,.,semi,;'
-      ],
-      '{#keys*}' => [
-        '#semi=;,dot=.,comma=,',
-        '#dot=.,semi=;,comma=,',
-        '#comma=,,semi=;,dot=.',
-        '#semi=;,comma=,,dot=.',
-        '#dot=.,comma=,,semi=;',
-        '#comma=,,dot=.,semi=;'
-      ]
+      '{#keys}' => '#semi,;,dot,.,comma,,',
+      '{#keys*}' => '#semi=;,dot=.,comma=,',
     }
   end
   context "Operator . with value modifiers" do
@@ -279,22 +241,8 @@ describe "Level 4" do
       'X{.var:3}' => 'X.val',
       'X{.list}' => 'X.red,green,blue',
       'X{.list*}' => 'X.red.green.blue',
-      'X{.keys}' => [
-        'X.semi,%3B,dot,.,comma,%2C',
-        'X.dot,.,semi,%3B,comma,%2C',
-        'X.comma,%2C,semi,%3B,dot,.',
-        'X.semi,%3B,comma,%2C,dot,.',
-        'X.dot,.,comma,%2C,semi,%3B',
-        'X.comma,%2C,dot,.,semi,%3B'
-      ],
-      'X{.keys*}' => [
-        'X.semi=%3B.dot=..comma=%2C',
-        'X.dot=..semi=%3B.comma=%2C',
-        'X.comma=%2C.semi=%3B.dot=.',
-        'X.semi=%3B.comma=%2C.dot=.',
-        'X.dot=..comma=%2C.semi=%3B',
-        'X.comma=%2C.dot=..semi=%3B'
-      ]
+      'X{.keys}' => 'X.semi,%3B,dot,.,comma,%2C',
+      'X{.keys*}' => 'X.semi=%3B.dot=..comma=%2C',
     }
   end
   context "Operator / with value modifiers" do
@@ -303,22 +251,8 @@ describe "Level 4" do
       '{/list}' => '/red,green,blue',
       '{/list*}' => '/red/green/blue',
       '{/list*,path:4}' => '/red/green/blue/%2Ffoo',
-      '{/keys}' => [
-        '/semi,%3B,dot,.,comma,%2C',
-        '/dot,.,semi,%3B,comma,%2C',
-        '/comma,%2C,semi,%3B,dot,.',
-        '/semi,%3B,comma,%2C,dot,.',
-        '/dot,.,comma,%2C,semi,%3B',
-        '/comma,%2C,dot,.,semi,%3B'
-      ],
-      '{/keys*}' => [
-        '/semi=%3B/dot=./comma=%2C',
-        '/dot=./semi=%3B/comma=%2C',
-        '/comma=%2C/semi=%3B/dot=.',
-        '/semi=%3B/comma=%2C/dot=.',
-        '/dot=./comma=%2C/semi=%3B',
-        '/comma=%2C/dot=./semi=%3B'
-      ]
+      '{/keys}' => '/semi,%3B,dot,.,comma,%2C',
+      '{/keys*}' => '/semi=%3B/dot=./comma=%2C',
     }
   end
   context "Operator ; with value modifiers" do
@@ -326,22 +260,8 @@ describe "Level 4" do
       '{;hello:5}' => ';hello=Hello',
       '{;list}' => ';list=red,green,blue',
       '{;list*}' => ';list=red;list=green;list=blue',
-      '{;keys}' => [
-        ';keys=semi,%3B,dot,.,comma,%2C',
-        ';keys=dot,.,semi,%3B,comma,%2C',
-        ';keys=comma,%2C,semi,%3B,dot,.',
-        ';keys=semi,%3B,comma,%2C,dot,.',
-        ';keys=dot,.,comma,%2C,semi,%3B',
-        ';keys=comma,%2C,dot,.,semi,%3B'
-      ],
-      '{;keys*}' => [
-        ';semi=%3B;dot=.;comma=%2C',
-        ';dot=.;semi=%3B;comma=%2C',
-        ';comma=%2C;semi=%3B;dot=.',
-        ';semi=%3B;comma=%2C;dot=.',
-        ';dot=.;comma=%2C;semi=%3B',
-        ';comma=%2C;dot=.;semi=%3B'
-      ]
+      '{;keys}' => ';keys=semi,%3B,dot,.,comma,%2C',
+      '{;keys*}' => ';semi=%3B;dot=.;comma=%2C',
     }
   end
   context "Operator ? with value modifiers" do
@@ -349,22 +269,8 @@ describe "Level 4" do
       '{?var:3}' => '?var=val',
       '{?list}' => '?list=red,green,blue',
       '{?list*}' => '?list=red&list=green&list=blue',
-      '{?keys}' => [
-        '?keys=semi,%3B,dot,.,comma,%2C',
-        '?keys=dot,.,semi,%3B,comma,%2C',
-        '?keys=comma,%2C,semi,%3B,dot,.',
-        '?keys=semi,%3B,comma,%2C,dot,.',
-        '?keys=dot,.,comma,%2C,semi,%3B',
-        '?keys=comma,%2C,dot,.,semi,%3B'
-      ],
-      '{?keys*}' => [
-        '?semi=%3B&dot=.&comma=%2C',
-        '?dot=.&semi=%3B&comma=%2C',
-        '?comma=%2C&semi=%3B&dot=.',
-        '?semi=%3B&comma=%2C&dot=.',
-        '?dot=.&comma=%2C&semi=%3B',
-        '?comma=%2C&dot=.&semi=%3B'
-      ]
+      '{?keys}' => '?keys=semi,%3B,dot,.,comma,%2C',
+      '{?keys*}' => '?semi=%3B&dot=.&comma=%2C',
     }
   end
   context "Operator & with value modifiers" do
@@ -372,22 +278,8 @@ describe "Level 4" do
       '{&var:3}' => '&var=val',
       '{&list}' => '&list=red,green,blue',
       '{&list*}' => '&list=red&list=green&list=blue',
-      '{&keys}' => [
-        '&keys=semi,%3B,dot,.,comma,%2C',
-        '&keys=dot,.,semi,%3B,comma,%2C',
-        '&keys=comma,%2C,semi,%3B,dot,.',
-        '&keys=semi,%3B,comma,%2C,dot,.',
-        '&keys=dot,.,comma,%2C,semi,%3B',
-        '&keys=comma,%2C,dot,.,semi,%3B'
-      ],
-      '{&keys*}' => [
-        '&semi=%3B&dot=.&comma=%2C',
-        '&dot=.&semi=%3B&comma=%2C',
-        '&comma=%2C&semi=%3B&dot=.',
-        '&semi=%3B&comma=%2C&dot=.',
-        '&dot=.&comma=%2C&semi=%3B',
-        '&comma=%2C&dot=.&semi=%3B'
-      ]
+      '{&keys}' => '&keys=semi,%3B,dot,.,comma,%2C',
+      '{&keys*}' => '&semi=%3B&dot=.&comma=%2C',
     }
   end
 end
@@ -396,7 +288,7 @@ describe "Modifiers" do
     {
       :var => "value",
       :semi => ";",
-      :year => %w(1965 2000 2012),
+      :year => [1965, 2000, 2012],
       :dom => %w(example com)
     }
   }
@@ -429,7 +321,7 @@ describe "Expansion" do
       :base  => "http://example.com/home/",
       :path  => "/foo/bar",
       :list  => ["red", "green", "blue"],
-      :keys  => {"semi" => ";","dot" => ".","comma" => ","},
+      :keys  => {"semi" => ";","dot" => ".",:comma => ","},
       :v     => "6",
       :x     => "1024",
       :y     => "768",
@@ -467,22 +359,8 @@ describe "Expansion" do
       '{var:30}' => 'value',
       '{list}' => 'red,green,blue',
       '{list*}' => 'red,green,blue',
-      '{keys}' => [
-        'semi,%3B,dot,.,comma,%2C',
-        'dot,.,semi,%3B,comma,%2C',
-        'comma,%2C,semi,%3B,dot,.',
-        'semi,%3B,comma,%2C,dot,.',
-        'dot,.,comma,%2C,semi,%3B',
-        'comma,%2C,dot,.,semi,%3B'
-      ],
-      '{keys*}' => [
-        'semi=%3B,dot=.,comma=%2C',
-        'dot=.,semi=%3B,comma=%2C',
-        'comma=%2C,semi=%3B,dot=.',
-        'semi=%3B,comma=%2C,dot=.',
-        'dot=.,comma=%2C,semi=%3B',
-        'comma=%2C,dot=.,semi=%3B'
-      ]
+      '{keys}' => 'semi,%3B,dot,.,comma,%2C',
+      '{keys*}' => 'semi=%3B,dot=.,comma=%2C',
     }
   end
   context "reserved expansion (+)" do
@@ -502,22 +380,8 @@ describe "Expansion" do
       '{+path:6}/here' => '/foo/b/here',
       '{+list}' => 'red,green,blue',
       '{+list*}' => 'red,green,blue',
-      '{+keys}' => [
-        'semi,;,dot,.,comma,,',
-        'dot,.,semi,;,comma,,',
-        'comma,,,semi,;,dot,.',
-        'semi,;,comma,,,dot,.',
-        'dot,.,comma,,,semi,;',
-        'comma,,,dot,.,semi,;'
-      ],
-      '{+keys*}' => [
-        'semi=;,dot=.,comma=,',
-        'dot=.,semi=;,comma=,',
-        'comma=,,semi=;,dot=.',
-        'semi=;,comma=,,dot=.',
-        'dot=.,comma=,,semi=;',
-        'comma=,,dot=.,semi=;'
-      ]
+      '{+keys}' => 'semi,;,dot,.,comma,,',
+      '{+keys*}' => 'semi=;,dot=.,comma=,',
     }
   end
   context "fragment expansion (#)" do
@@ -532,22 +396,8 @@ describe "Expansion" do
       '{#path:6}/here' => '#/foo/b/here',
       '{#list}' => '#red,green,blue',
       '{#list*}' => '#red,green,blue',
-      '{#keys}' => [
-        '#semi,;,dot,.,comma,,',
-        '#dot,.,semi,;,comma,,',
-        '#comma,,,semi,;,dot,.',
-        '#semi,;,comma,,,dot,.',
-        '#dot,.,comma,,,semi,;',
-        '#comma,,,dot,.,semi,;'
-      ],
-      '{#keys*}' => [
-        '#semi=;,dot=.,comma=,',
-        '#dot=.,semi=;,comma=,',
-        '#comma=,,semi=;,dot=.',
-        '#semi=;,comma=,,dot=.',
-        '#dot=.,comma=,,semi=;',
-        '#comma=,,dot=.,semi=;'
-      ]
+      '{#keys}' => '#semi,;,dot,.,comma,,',
+      '{#keys*}' => '#semi=;,dot=.,comma=,',
     }
   end
   context "label expansion (.)" do
@@ -562,22 +412,8 @@ describe "Expansion" do
       'X{.var:3}' => 'X.val',
       'X{.list}' => 'X.red,green,blue',
       'X{.list*}' => 'X.red.green.blue',
-      'X{.keys}' => [
-        'X.semi,%3B,dot,.,comma,%2C',
-        'X.dot,.,semi,%3B,comma,%2C',
-        'X.comma,%2C,semi,%3B,dot,.',
-        'X.semi,%3B,comma,%2C,dot,.',
-        'X.dot,.,comma,%2C,semi,%3B',
-        'X.comma,%2C,dot,.,semi,%3B'
-      ],
-      'X{.keys*}' => [
-        'X.semi=%3B.dot=..comma=%2C',
-        'X.dot=..semi=%3B.comma=%2C',
-        'X.comma=%2C.semi=%3B.dot=.',
-        'X.semi=%3B.comma=%2C.dot=.',
-        'X.dot=..comma=%2C.semi=%3B',
-        'X.comma=%2C.dot=..semi=%3B'
-      ],
+      'X{.keys}' => 'X.semi,%3B,dot,.,comma,%2C',
+      'X{.keys*}' => 'X.semi=%3B.dot=..comma=%2C',
       'X{.empty_keys}' => 'X',
       'X{.empty_keys*}' => 'X'
     }
@@ -596,22 +432,8 @@ describe "Expansion" do
       '{/list}' => '/red,green,blue',
       '{/list*}' => '/red/green/blue',
       '{/list*,path:4}' => '/red/green/blue/%2Ffoo',
-      '{/keys}' => [
-        '/semi,%3B,dot,.,comma,%2C',
-        '/dot,.,semi,%3B,comma,%2C',
-        '/comma,%2C,semi,%3B,dot,.',
-        '/semi,%3B,comma,%2C,dot,.',
-        '/dot,.,comma,%2C,semi,%3B',
-        '/comma,%2C,dot,.,semi,%3B'
-      ],
-      '{/keys*}' => [
-        '/semi=%3B/dot=./comma=%2C',
-        '/dot=./semi=%3B/comma=%2C',
-        '/comma=%2C/semi=%3B/dot=.',
-        '/semi=%3B/comma=%2C/dot=.',
-        '/dot=./comma=%2C/semi=%3B',
-        '/comma=%2C/dot=./semi=%3B'
-      ]
+      '{/keys}' => '/semi,%3B,dot,.,comma,%2C',
+      '{/keys*}' => '/semi=%3B/dot=./comma=%2C',
     }
   end
   context "path-style expansion (;)" do
@@ -627,22 +449,8 @@ describe "Expansion" do
       '{;hello:5}' => ';hello=Hello',
       '{;list}' => ';list=red,green,blue',
       '{;list*}' => ';list=red;list=green;list=blue',
-      '{;keys}' => [
-        ';keys=semi,%3B,dot,.,comma,%2C',
-        ';keys=dot,.,semi,%3B,comma,%2C',
-        ';keys=comma,%2C,semi,%3B,dot,.',
-        ';keys=semi,%3B,comma,%2C,dot,.',
-        ';keys=dot,.,comma,%2C,semi,%3B',
-        ';keys=comma,%2C,dot,.,semi,%3B'
-      ],
-      '{;keys*}' => [
-        ';semi=%3B;dot=.;comma=%2C',
-        ';dot=.;semi=%3B;comma=%2C',
-        ';comma=%2C;semi=%3B;dot=.',
-        ';semi=%3B;comma=%2C;dot=.',
-        ';dot=.;comma=%2C;semi=%3B',
-        ';comma=%2C;dot=.;semi=%3B'
-      ]
+      '{;keys}' => ';keys=semi,%3B,dot,.,comma,%2C',
+      '{;keys*}' => ';semi=%3B;dot=.;comma=%2C',
     }
   end
   context "form query expansion (?)" do
@@ -655,22 +463,8 @@ describe "Expansion" do
       '{?var:3}' => '?var=val',
       '{?list}' => '?list=red,green,blue',
       '{?list*}' => '?list=red&list=green&list=blue',
-      '{?keys}' => [
-        '?keys=semi,%3B,dot,.,comma,%2C',
-        '?keys=dot,.,semi,%3B,comma,%2C',
-        '?keys=comma,%2C,semi,%3B,dot,.',
-        '?keys=semi,%3B,comma,%2C,dot,.',
-        '?keys=dot,.,comma,%2C,semi,%3B',
-        '?keys=comma,%2C,dot,.,semi,%3B'
-      ],
-      '{?keys*}' => [
-        '?semi=%3B&dot=.&comma=%2C',
-        '?dot=.&semi=%3B&comma=%2C',
-        '?comma=%2C&semi=%3B&dot=.',
-        '?semi=%3B&comma=%2C&dot=.',
-        '?dot=.&comma=%2C&semi=%3B',
-        '?comma=%2C&dot=.&semi=%3B'
-      ]
+      '{?keys}' => '?keys=semi,%3B,dot,.,comma,%2C',
+      '{?keys*}' => '?semi=%3B&dot=.&comma=%2C',
     }
   end
   context "form query expansion (&)" do
@@ -683,22 +477,8 @@ describe "Expansion" do
       '{&var:3}' => '&var=val',
       '{&list}' => '&list=red,green,blue',
       '{&list*}' => '&list=red&list=green&list=blue',
-      '{&keys}' => [
-        '&keys=semi,%3B,dot,.,comma,%2C',
-        '&keys=dot,.,semi,%3B,comma,%2C',
-        '&keys=comma,%2C,semi,%3B,dot,.',
-        '&keys=semi,%3B,comma,%2C,dot,.',
-        '&keys=dot,.,comma,%2C,semi,%3B',
-        '&keys=comma,%2C,dot,.,semi,%3B'
-      ],
-      '{&keys*}' => [
-        '&semi=%3B&dot=.&comma=%2C',
-        '&dot=.&semi=%3B&comma=%2C',
-        '&comma=%2C&semi=%3B&dot=.',
-        '&semi=%3B&comma=%2C&dot=.',
-        '&dot=.&comma=%2C&semi=%3B',
-        '&comma=%2C&dot=.&semi=%3B'
-      ]
+      '{&keys}' => '&keys=semi,%3B,dot,.,comma,%2C',
+      '{&keys*}' => '&semi=%3B&dot=.&comma=%2C',
     }
   end
   context "non-string key in match data" do
@@ -1013,6 +793,19 @@ describe Addressable::Template do
         )
       end
 
+      it "normalizes as unicode even with wrong encoding specified" do
+        template = subject.partial_expand("query" => "Cafe\u0301".b)
+        expect(template.pattern).to eq(
+          "http://example.com/{resource}/Caf%C3%A9/"
+        )
+      end
+
+      it "raises on invalid unicode input" do
+        expect {
+          subject.partial_expand("query" => "M\xE9thode".b)
+        }.to raise_error(ArgumentError, "invalid byte sequence in UTF-8")
+      end
+
       it "does not normalize unicode when byte semantics requested" do
         template = subject.partial_expand({"query" => "Cafe\u0301"}, nil, false)
         expect(template.pattern).to eq(
@@ -1071,6 +864,17 @@ describe Addressable::Template do
       it "normalizes unicode by default" do
         uri = subject.expand("query" => "Cafe\u0301").to_str
         expect(uri).to eq("http://example.com/search/Caf%C3%A9/")
+      end
+
+      it "normalizes as unicode even with wrong encoding specified" do
+        uri = subject.expand("query" => "Cafe\u0301".b).to_str
+        expect(uri).to eq("http://example.com/search/Caf%C3%A9/")
+      end
+
+      it "raises on invalid unicode input" do
+        expect {
+          subject.expand("query" => "M\xE9thode".b).to_str
+        }.to raise_error(ArgumentError, "invalid byte sequence in UTF-8")
       end
 
       it "does not normalize unicode when byte semantics requested" do

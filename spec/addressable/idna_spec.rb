@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-# coding: utf-8
 # Copyright (C) Bob Aman
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,6 +35,12 @@ shared_examples_for "converting from unicode to ASCII" do
   it "should convert 'www.詹姆斯.com' correctly" do
     expect(Addressable::IDNA.to_ascii(
       "www.詹姆斯.com"
+    )).to eq("www.xn--8ws00zhy3a.com")
+  end
+
+  it "also accepts unicode strings encoded as ascii-8bit" do
+    expect(Addressable::IDNA.to_ascii(
+      "www.詹姆斯.com".b
     )).to eq("www.xn--8ws00zhy3a.com")
   end
 
@@ -249,11 +254,6 @@ shared_examples_for "converting from ASCII to unicode" do
     expect(Addressable::IDNA.to_unicode(
       "example..host"
     )).to eq("example..host")
-  end
-
-  it "should normalize 'string' correctly" do
-    expect(Addressable::IDNA.unicode_normalize_kc(:'string')).to eq("string")
-    expect(Addressable::IDNA.unicode_normalize_kc("string")).to eq("string")
   end
 end
 

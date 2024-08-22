@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-# coding: utf-8
 # Copyright (C) Bob Aman
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +20,7 @@ require "spec_helper"
 require "addressable/uri"
 require "uri"
 require "ipaddr"
+require "yaml"
 
 if !"".respond_to?("force_encoding")
   class String
@@ -999,6 +999,72 @@ describe Addressable::URI, "when frozen" do
   end
 end
 
+describe Addressable::URI, "when normalized and then deeply frozen" do
+  before do
+    @uri = Addressable::URI.parse(
+      "http://user:password@example.com:8080/path?query=value#fragment"
+    ).normalize!
+
+    @uri.instance_variables.each do |var|
+      @uri.instance_variable_set(var, @uri.instance_variable_get(var).freeze)
+    end
+
+    @uri.freeze
+  end
+
+  it "#normalized_scheme should not error" do
+    expect { @uri.normalized_scheme }.not_to raise_error
+  end
+
+  it "#normalized_user should not error" do
+    expect { @uri.normalized_user }.not_to raise_error
+  end
+
+  it "#normalized_password should not error" do
+    expect { @uri.normalized_password }.not_to raise_error
+  end
+
+  it "#normalized_userinfo should not error" do
+    expect { @uri.normalized_userinfo }.not_to raise_error
+  end
+
+  it "#normalized_host should not error" do
+    expect { @uri.normalized_host }.not_to raise_error
+  end
+
+  it "#normalized_authority should not error" do
+    expect { @uri.normalized_authority }.not_to raise_error
+  end
+
+  it "#normalized_port should not error" do
+    expect { @uri.normalized_port }.not_to raise_error
+  end
+
+  it "#normalized_site should not error" do
+    expect { @uri.normalized_site }.not_to raise_error
+  end
+
+  it "#normalized_path should not error" do
+    expect { @uri.normalized_path }.not_to raise_error
+  end
+
+  it "#normalized_query should not error" do
+    expect { @uri.normalized_query }.not_to raise_error
+  end
+
+  it "#normalized_fragment should not error" do
+    expect { @uri.normalized_fragment }.not_to raise_error
+  end
+
+  it "should be frozen" do
+    expect(@uri).to be_frozen
+  end
+
+  it "should not allow destructive operations" do
+    expect { @uri.normalize! }.to raise_error(RuntimeError)
+  end
+end
+
 describe Addressable::URI, "when created from string components" do
   before do
     @uri = Addressable::URI.new(
@@ -1689,6 +1755,19 @@ describe Addressable::URI, "when parsed from " +
 
   it "when inspected, should have the correct object id" do
     expect(@uri.inspect).to include("%#0x" % @uri.object_id)
+  end
+
+  context "when Addressable::URI has been sub-classed" do
+    class CustomURIClass < Addressable::URI
+    end
+
+    before do
+      @uri = CustomURIClass.parse("http://example.com")
+    end
+
+    it "when inspected, should have the sub-classes name" do
+      expect(@uri.inspect).to include("CustomURIClass")
+    end
   end
 
   it "should use the 'http' scheme" do
@@ -2953,6 +3032,20 @@ describe Addressable::URI, "when parsed from " +
 
   it "should have an origin of 'http://example.com'" do
     expect(@uri.origin).to eq('http://example.com')
+  end
+end
+
+describe Addressable::URI, "when parsed with empty port" do
+  subject(:uri) do
+    Addressable::URI.parse("//example.com:")
+  end
+
+  it "should not infer a port" do
+    expect(uri.port).to be(nil)
+  end
+
+  it "should have a site value of '//example.com'" do
+    expect(uri.site).to eq("//example.com")
   end
 end
 
@@ -5874,6 +5967,26 @@ describe Addressable::URI, "when normalizing a path with an encoded slash" do
   end
 end
 
+describe Addressable::URI, "when normalizing a path with special unicode" do
+  it "does not stop at or ignore null bytes" do
+    expect(Addressable::URI.parse("/path%00segment/").normalize.path).to eq(
+      "/path%00segment/"
+    )
+  end
+
+  it "does apply NFC unicode normalization" do
+    expect(Addressable::URI.parse("/%E2%84%A6").normalize.path).to eq(
+      "/%CE%A9"
+    )
+  end
+
+  it "does not apply NFKC unicode normalization" do
+    expect(Addressable::URI.parse("/%C2%AF%C2%A0").normalize.path).to eq(
+      "/%C2%AF%C2%A0"
+    )
+  end
+end
+
 describe Addressable::URI, "when normalizing a partially encoded string" do
   it "should result in correct percent encoded sequence" do
     expect(Addressable::URI.normalize_component(
@@ -5991,6 +6104,11 @@ describe Addressable::URI, "when unencoding a multibyte string" do
 
   it "should consistently use UTF-8 internally" do
     expect(Addressable::URI.unencode_component("ski=%BA%DAɫ")).to eq("ski=\xBA\xDAɫ")
+  end
+
+  it "should not fail with UTF-8 incompatible string" do
+    url = "/M%E9/\xE9?p=\xFC".b
+    expect(Addressable::URI.unencode_component(url)).to eq("/M\xE9/\xE9?p=\xFC")
   end
 
   it "should result in correct percent encoded sequence as a URI" do
@@ -6661,5 +6779,75 @@ describe Addressable::URI, "when initializing a subclass of Addressable::URI" do
 
   it "should have the same class after being joined" do
     expect(@uri.class).to eq(@uri.join('path').class)
+  end
+end
+
+describe Addressable::URI, "support serialization roundtrip" do
+  before do
+    @uri = Addressable::URI.new(
+      :scheme => "http",
+      :user => "user",
+      :password => "password",
+      :host => "example.com",
+      :port => 80,
+      :path => "/path",
+      :query => "query=value",
+      :fragment => "fragment"
+    )
+  end
+
+  it "is in a working state after being serialized with Marshal" do
+    @uri = Addressable::URI.parse("http://example.com")
+    cloned_uri = Marshal.load(Marshal.dump(@uri))
+    expect(cloned_uri.normalized_scheme).to be == @uri.normalized_scheme
+  end
+
+  it "is in a working state after being serialized with YAML" do
+    @uri = Addressable::URI.parse("http://example.com")
+    cloned_uri = if YAML.respond_to?(:unsafe_load)
+      YAML.unsafe_load(YAML.dump(@uri))
+    else
+      YAML.load(YAML.dump(@uri))
+    end
+    expect(cloned_uri.normalized_scheme).to be == @uri.normalized_scheme
+  end
+end
+
+describe Addressable::URI, "when initialized in a non-main `Ractor`" do
+  it "should have the same value as if used in the main `Ractor`" do
+    pending("Ruby 3.0+ for `Ractor` support") unless defined?(Ractor)
+    main = Addressable::URI.parse("http://example.com")
+    expect(
+      Ractor.new { Addressable::URI.parse("http://example.com") }.take
+    ).to eq(main)
+  end
+end
+
+describe Addressable::URI, "when deferring validation" do
+  subject(:deferred) { uri.instance_variable_get(:@validation_deferred) }
+
+  let(:uri) { Addressable::URI.parse("http://example.com") }
+
+  it "defers validation within the block" do
+    uri.defer_validation do
+      expect(deferred).to be true
+    end
+  end
+
+  it "always resets deferral afterward" do
+    expect { uri.defer_validation { raise "boom" } }.to raise_error("boom")
+    expect(deferred).to be false
+  end
+
+  it "returns nil" do
+    res = uri.defer_validation {}
+    expect(res).to be nil
+  end
+end
+
+describe Addressable::URI, "YAML safe loading" do
+  it "doesn't serialize anonymous objects" do
+    url = Addressable::URI.parse("http://example.com/")
+    expect(YAML.dump(url)).to_not include("!ruby/object {}")
   end
 end
